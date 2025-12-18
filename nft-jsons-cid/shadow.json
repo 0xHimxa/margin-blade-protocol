@@ -1,0 +1,10 @@
+{
+  "name": "Shadow Assassin",
+  "description": "A lethal operative who ends battles before enemies can react.",
+  "image": "ipfs://QmZsVCePbEiZ1qnUS189L2yBnK8oF3if5DFPuP1TCaUZDw",
+  "attributes": [
+    { "trait_type": "Class", "value": "Assassin" },
+    { "trait_type": "Rarity", "value": "Legendary" },
+    { "trait_type": "Role", "value": "Burst Eliminator" }
+  ]
+}

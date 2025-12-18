@@ -1,0 +1,10 @@
+{
+  "name": "Iron Vanguard",
+  "description": "A heavily armored frontline warrior built to endure endless battles.",
+  "image": "ipfs://QmbN1SJkg2718gVD3nsGuJq6DQkmHZ9Vv2eFwAZJhMggrm",
+  "attributes": [
+    { "trait_type": "Class", "value": "Tank" },
+    { "trait_type": "Rarity", "value": "Common" },
+    { "trait_type": "Role", "value": "Frontline Defender" }
+  ]
+}

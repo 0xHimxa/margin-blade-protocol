@@ -1,0 +1,10 @@
+{
+  "name": "Void Arcanist",
+  "description": "A spellcaster wielding unstable void energy in battle.",
+  "image": "ipfs://QmPjGHrwZwcjqV3NDJ3dSjRK7bh13hCtmchWYoLGos4jxe",
+  "attributes": [
+    { "trait_type": "Class", "value": "Mage" },
+    { "trait_type": "Rarity", "value": "Rare" },
+    { "trait_type": "Role", "value": "Magic Damage Dealer" }
+  ]
+}

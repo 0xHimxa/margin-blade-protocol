@@ -1,0 +1,10 @@
+{
+  "name": "Ember Duelist",
+  "description": "A relentless fighter who overwhelms enemies with speed and aggression.",
+  "image": "ipfs://Qmc6GfrHq1aD3LxmYJoZ4hFuWmnwYPnywuFFDUr5nWujsE",
+  "attributes": [
+    { "trait_type": "Class", "value": "Striker" },
+    { "trait_type": "Rarity", "value": "Common" },
+    { "trait_type": "Role", "value": "Rapid Attacker" }
+  ]
+}

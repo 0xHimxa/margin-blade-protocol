@@ -1,0 +1,10 @@
+{
+  "name": "Storm Ranger",
+  "description": "An agile combatant striking enemies from a distance.",
+  "image": "ipfs://Qmc9okhHmBZ8mTM3raEtEkCdAwFQ8XPCJwcmELj7AcV5pn",
+  "attributes": [
+    { "trait_type": "Class", "value": "Ranger" },
+    { "trait_type": "Rarity", "value": "Rare" },
+    { "trait_type": "Role", "value": "Ranged Attacker" }
+  ]
+}

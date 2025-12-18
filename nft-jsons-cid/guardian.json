@@ -1,0 +1,10 @@
+{
+  "name": "Celestial Guardian",
+  "description": "A divine protector forged to shield allies from destruction.",
+  "image": "ipfs:QmNaaC9EUBPGqRbHE4uMyatiULYWmkeyjKNfK3o8JXvGme",
+  "attributes": [
+    { "trait_type": "Class", "value": "Tank" },
+    { "trait_type": "Rarity", "value": "Epic" },
+    { "trait_type": "Role", "value": "Damage Mitigator" }
+  ]
+}

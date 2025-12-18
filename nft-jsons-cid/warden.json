@@ -1,0 +1,10 @@
+{
+  "name": "Eternal Warden",
+  "description": "An ancient entity created to dominate endless idle wars.",
+  "image": "ipfs://QmVq8ZNju3xJJNftEjyWFdmZgn5DVzc7qaYrksfowJFCAg",
+  "attributes": [
+    { "trait_type": "Class", "value": "Guardian" },
+    { "trait_type": "Rarity", "value": "Mythic" },
+    { "trait_type": "Role", "value": "Battle Anchor" }
+  ]
+}

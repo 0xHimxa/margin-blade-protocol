@@ -1,0 +1,10 @@
+{
+  "name": "Bloodbound Reaver",
+  "description": "A brutal warrior who thrives in prolonged combat.",
+  "image": "ipfs://QmafuWTiwP8GCVnewAtmN6F87ryiC8auPjcqF5jnii2pm3",
+  "attributes": [
+    { "trait_type": "Class", "value": "Bruiser" },
+    { "trait_type": "Rarity", "value": "Epic" },
+    { "trait_type": "Role", "value": "Sustained Fighter" }
+  ]
+}
