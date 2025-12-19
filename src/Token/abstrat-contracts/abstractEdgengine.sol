@@ -18,6 +18,8 @@ abstract contract EdgeEngineErrors{
    error EdgeEngine__EDGEbalceCantBeZero();
    error EdgeEngine__FailedTo_BurnEDGE();
    error EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
+   error EdgeEngine__WithdrawExeedBalance();
+
 
 
 
