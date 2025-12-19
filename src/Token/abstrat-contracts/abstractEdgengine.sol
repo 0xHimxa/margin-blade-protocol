@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-
-abstract contract EdgeEngineErrors{
+abstract contract EdgeEngineErrors {
     ///////////////////
     // Errors
     ///////////////////
@@ -14,13 +13,13 @@ abstract contract EdgeEngineErrors{
     error EdgeEngine__FaildToTransferCollateral();
     error EdgeEngine__HealthFatorIsBroken__LiquidatingSoon();
     error EdgeEngine__EdgeContractCantbeAddressZero();
-   error EdgeEngine__FailedTo_MintEDGE();
-   error EdgeEngine__EDGEbalceCantBeZero();
-   error EdgeEngine__FailedTo_BurnEDGE();
-   error EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
-   error EdgeEngine__WithdrawExeedBalance();
-
-
-
-
+    error EdgeEngine__FailedTo_MintEDGE();
+    error EdgeEngine__EDGEbalceCantBeZero();
+    error EdgeEngine__FailedTo_BurnEDGE();
+    error EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
+    error EdgeEngine__WithdrawExeedBalance();
+    error EdgeEngine__UserHealthFactorIsOk();
+    error EdgeEngine__HealthFactorNotImproved();
+    error EdgeEngine__Oracle_Price_IsInvalid();
+    error EdgeEngine__PriceAt_Stale();
 }
