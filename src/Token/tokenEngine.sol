@@ -5,22 +5,18 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {
     AggregatorV3Interface
 } from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {Edge} from './Edge-Token.sol';
+import {EdgeEngineErrors} from './abstrat-contracts/abstractEdgengine.sol';
 /**
  * @title EdgeEngine
  * @author Himxa
  * @notice thinking.
  */
-contract EdgeEngine {
-    ///////////////////
-    // Errors
-    ///////////////////
-    error EdgeEngine__MustBeGreaterThanZero();
-    error EdgeEngine__CollateralTokenNotAllowed();
-    error EdgeEngine__FailedToDepositCollateral();
-    error EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
-    error EdgeEngine__WithdrawBalanceIsZero();
-    error EdgeEngine__FaildToTransferCollateral();
-    error EdgeEngine__HealthFatorIsBroken__LiquidatingSoon();
+contract EdgeEngine  is EdgeEngineErrors{
+
+
+
+
 
 
     ///////////////////
@@ -38,7 +34,7 @@ contract EdgeEngine {
     uint256 private constant PRICE_PRICISION = 1e18;
     uint256 private constant  THRESHOLD= 50;
     uint256 private constant THRESHOLD_PRICISIONS = 100; 
-
+    Edge private immutable edge;
     ///////////////////
     // Events
     ///////////////////
@@ -77,16 +73,23 @@ contract EdgeEngine {
 
     constructor(
         address[] memory _collateralTokens,
-        address[] memory _priceFeeds
+        address[] memory _priceFeeds,
+        address _edgeAddress
     ) {
         if (_collateralTokens.length != _priceFeeds.length) {
             revert EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
         }
 
+        if(_edgeAddress == address(0)) revert EdgeEngine__EdgeContractCantbeAddressZero();
+
+        edge = Edge(_edgeAddress);
+
+
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             s_priceFeeds[_collateralTokens[i]] = _priceFeeds[i];
             s_collateralTokens.push(_collateralTokens[i]);
         }
+
     }
 
     ///////////////////
@@ -118,6 +121,49 @@ contract EdgeEngine {
             revert EdgeEngine__FailedToDepositCollateral();
         }
     }
+
+
+
+    function mintEdge(uint256 _amount) external minimumChecks(_amount){
+        s_minteds[msg.sender]+=_amount;
+        _revertIFHealthFatorIsBroken(msg.sender);
+
+        bool success = edge.mint(msg.sender, _amount);
+
+        if (!success) {
+            revert EdgeEngine__FailedTo_MintEDGE();
+        }
+
+
+
+    }
+
+//check about paying more than they owled
+    function burnEdge(uint256 _amount) external{
+     
+_burnEdge(_amount, msg.sender, msg.sender);
+      
+ _revertIFHealthFatorIsBroken(msg.sender);
+
+        
+      
+
+
+
+
+    }
+
+    function _burnEdge(uint256 _amount,address from,address onBehalfOf) private minimumChecks(_amount){
+          s_minteds[onBehalfOf]-=_amount;
+
+        bool move = edge.transferFrom(from,address(this), _amount);
+        if(!move) revert EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
+
+
+       edge.burn(_amount);
+    }
+
+    
 
     function withdrawCollateral(
         address _collateralAddress,

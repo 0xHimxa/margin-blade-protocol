@@ -54,24 +54,27 @@ contract Edge is ERC20,Ownable {
         external 
         minimumChecks(_amount)
         onlyOwner() 
+        returns(bool)
     {
         _mint(_to, _amount);
+        return true;
     }
 
     /**
      * @notice Destroys tokens from a specific address.
      * @dev Usually used by the engine/protocol to maintain the peg or reduce supply.
-     * @param _from The address from which tokens will be removed.
      * @param _amount The quantity of tokens to be destroyed.
      */
     function burn(
-        address _from,
+       
         uint256 _amount
     ) 
         external 
         minimumChecks(_amount)
         onlyOwner() 
+     
     {
-        _burn(_from, _amount);
+        _burn(msg.sender, _amount);
+      
     }
 }
