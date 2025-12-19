@@ -10,7 +10,8 @@ import {PriceFeed} from "./oracle/priceFeed.sol";
 /**
  * @title EdgeEngine
  * @author Himxa
- * @notice thinking.
+ * @notice This contract manages the collateralization, minting, and liquidation of Edge tokens.
+ * @dev Implements a decentralized stablecoin-like engine using Chainlink price feeds.
  */
 contract EdgeEngine is EdgeEngineErrors {
     using PriceFeed for AggregatorV3Interface;
@@ -18,42 +19,43 @@ contract EdgeEngine is EdgeEngineErrors {
     ///////////////////
     // State Variables
     ///////////////////
-    // Mapping of token address to its corresponding Price Feed address
+
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
-    address[] private s_collateralTokens;
-    mapping(address user => uint256 minted) private s_minteds;
-
-    // Mapping of user address to collateral token address to the amount deposited
     mapping(address user => mapping(address collateralToken => uint256 amount)) private s_collateralDeposits;
-    uint256 private constant ORACLE_PRICE_PRICISION = 1e10;
-    uint256 private constant PRICE_PRICISION = 1e18;
-    uint256 private constant THRESHOLD = 50;
-    uint256 private constant THRESHOLD_PRICISIONS = 100;
-    uint256 private constant LIQUIDATOR_BONUS = 10;
-    uint256 private constant LIQUIDATOR_BONUS_PRICISIONS = 100;
+    mapping(address user => uint256 mintedAmount) private s_mintedEdge;
 
-    Edge private immutable edge;
+    address[] private s_collateralTokens;
+    Edge private immutable i_edge;
+
+    // Constants for Math & Precision
+    uint256 private constant ORACLE_PRICE_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant THRESHOLD = 50; // 50% Liquidation Threshold
+    uint256 private constant THRESHOLD_PRECISION = 100;
+    uint256 private constant LIQUIDATOR_BONUS = 10; // 10% Bonus
+    uint256 private constant LIQUIDATOR_BONUS_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+
     ///////////////////
     // Events
     ///////////////////
-    event CollateralDeposited(address indexed user, address indexed collateral, uint256 indexed amount);
 
-    event userWithDrawCollateral(address indexed user, address indexed collateralAdd, uint256 indexed amount);
+    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+    event CollateralWithdrawn(address indexed user, address indexed token, uint256 indexed amount);
+    event EdgeMinted(address indexed user, uint256 amount);
+    event EdgeBurned(address indexed user, uint256 amount);
 
     ///////////////////
     // Modifiers
     ///////////////////
-    modifier minimumChecks(uint256 _amount) {
-        if (_amount <= 0) {
-            revert EdgeEngine__MustBeGreaterThanZero();
-        }
+
+    modifier amountGreaterThanZero(uint256 _amount) {
+        if (_amount == 0) revert EdgeEngine__MustBeGreaterThanZero();
         _;
     }
 
-    modifier isCollateralAllowed(address _collateral) {
-        if (s_priceFeeds[_collateral] == address(0)) {
-            revert EdgeEngine__CollateralTokenNotAllowed();
-        }
+    modifier isAllowedCollateral(address _token) {
+        if (s_priceFeeds[_token] == address(0)) revert EdgeEngine__CollateralTokenNotAllowed();
         _;
     }
 
@@ -65,12 +67,11 @@ contract EdgeEngine is EdgeEngineErrors {
         if (_collateralTokens.length != _priceFeeds.length) {
             revert EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
         }
-
         if (_edgeAddress == address(0)) {
             revert EdgeEngine__EdgeContractCantbeAddressZero();
         }
 
-        edge = Edge(_edgeAddress);
+        i_edge = Edge(_edgeAddress);
 
         for (uint256 i = 0; i < _collateralTokens.length; i++) {
             s_priceFeeds[_collateralTokens[i]] = _priceFeeds[i];
@@ -78,197 +79,181 @@ contract EdgeEngine is EdgeEngineErrors {
         }
     }
 
-    function depositCollateralAndMintEdge(
-        address _collateralAddress,
-        uint256 _amountCollateral,
-        uint256 _edgeAmountToMint
-    ) public {
-        depositCollateral(_collateralAddress, _amountCollateral);
-        mintEdge(_edgeAmountToMint);
-    }
-
-    function withdrawCollateralAndBurnEdge(
-        address _collateralAddress,
-        uint256 _amountCollateral,
-        uint256 _edgeAmountToBurn
-    ) public {
-        _burnEdge(_edgeAmountToBurn, msg.sender, msg.sender);
-        _withdraw(_collateralAddress, _amountCollateral);
-
-        _revertIFHealthFatorIsBroken(msg.sender);
-    }
-
     ///////////////////
     // External Functions
     ///////////////////
 
     /**
-     * @param _collateralAddress The address of the token to deposit as collateral
-     * @param _amount The amount of collateral to deposit
-     * @dev user parameter removed from input as msg.sender is more secure for deposits
+     * @notice Convenience function to deposit collateral and mint Edge in one transaction.
+     */
+    function depositCollateralAndMintEdge(
+        address _collateralAddress,
+        uint256 _amountCollateral,
+        uint256 _edgeAmountToMint
+    ) external {
+        depositCollateral(_collateralAddress, _amountCollateral);
+        mintEdge(_edgeAmountToMint);
+    }
+
+    /**
+     * @notice Convenience function to burn Edge and withdraw collateral in one transaction.
+     */
+    function withdrawCollateralAndBurnEdge(
+        address _collateralAddress,
+        uint256 _amountCollateral,
+        uint256 _edgeAmountToBurn
+    ) external {
+        _burnEdge(_edgeAmountToBurn, msg.sender, msg.sender);
+        _withdrawCollateral(_collateralAddress, _amountCollateral, msg.sender, msg.sender);
+        _revertIfHealthFactorIsBroken(msg.sender);
+    }
+
+    /**
+     * @param _collateralAddress The address of the token to deposit.
+     * @param _amount The amount of collateral to deposit.
      */
     function depositCollateral(address _collateralAddress, uint256 _amount)
         public
-        minimumChecks(_amount)
-        isCollateralAllowed(_collateralAddress)
+        amountGreaterThanZero(_amount)
+        isAllowedCollateral(_collateralAddress)
     {
-        // Update state before external transfer (Checks-Effects-Interactions pattern)
         s_collateralDeposits[msg.sender][_collateralAddress] += _amount;
-
         emit CollateralDeposited(msg.sender, _collateralAddress, _amount);
 
-        // Perform the transfer
         bool success = ERC20(_collateralAddress).transferFrom(msg.sender, address(this), _amount);
-
-        if (!success) {
-            revert EdgeEngine__FailedToDepositCollateral();
-        }
+        if (!success) revert EdgeEngine__FailedToDepositCollateral();
     }
 
-    function mintEdge(uint256 _amount) public minimumChecks(_amount) {
-        s_minteds[msg.sender] += _amount;
-        _revertIFHealthFatorIsBroken(msg.sender);
+    /**
+     * @param _amount Amount of Edge to mint.
+     * @dev Must have sufficient collateral value to maintain Health Factor.
+     */
+    function mintEdge(uint256 _amount) public amountGreaterThanZero(_amount) {
+        s_mintedEdge[msg.sender] += _amount;
+        _revertIfHealthFactorIsBroken(msg.sender);
 
-        bool success = edge.mint(msg.sender, _amount);
-
-        if (!success) {
-            revert EdgeEngine__FailedTo_MintEDGE();
-        }
+        bool success = i_edge.mint(msg.sender, _amount);
+        if (!success) revert EdgeEngine__FailedTo_MintEDGE();
+        emit EdgeMinted(msg.sender, _amount);
     }
 
-    //check about paying more than they owled
-    function burnEdge(uint256 _amount) public {
+    /**
+     * @param _amount Amount of Edge to burn from user's balance to improve Health Factor.
+     */
+    function burnEdge(uint256 _amount) external amountGreaterThanZero(_amount) {
         _burnEdge(_amount, msg.sender, msg.sender);
-
-        _revertIFHealthFatorIsBroken(msg.sender);
+        // Burning Edge always improves health factor, so revert check is optional but safe
+        _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function _burnEdge(uint256 _amount, address from, address onBehalfOf) private minimumChecks(_amount) {
-        s_minteds[onBehalfOf] -= _amount;
-
-        bool move = edge.transferFrom(from, address(this), _amount);
-        if (!move) revert EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
-
-        edge.burn(_amount);
+    /**
+     * @param _collateralAddress Token to withdraw.
+     * @param _amount Amount to withdraw.
+     */
+    function withdrawCollateral(address _collateralAddress, uint256 _amount) external amountGreaterThanZero(_amount) {
+        _withdrawCollateral(_collateralAddress, _amount, msg.sender, msg.sender);
+        _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function withdrawCollateral(address _collateralAddress, uint256 _amount)
-        public
-        minimumChecks(_amount)
-        isCollateralAllowed(_collateralAddress)
+    /**
+     * @notice Liquidates a user whose Health Factor is below 1.
+     * @param _user The broken user address.
+     * @param _token The collateral token to seize.
+     * @param _debtToCover The amount of Edge you want to burn to improve user's debt.
+     */
+    function liquidate(address _user, address _token, uint256 _debtToCover)
+        external
+        amountGreaterThanZero(_debtToCover)
     {
-        _withdraw(_collateralAddress, _amount);
-        _revertIFHealthFatorIsBroken(msg.sender);
-    }
-
-    function _withdraw(address _collateralAddress, uint256 _amount) private {
-        if (s_collateralDeposits[msg.sender][_collateralAddress] == 0) {
-            revert EdgeEngine__WithdrawBalanceIsZero();
-        }
-        if (s_collateralDeposits[msg.sender][_collateralAddress] < _amount) {
-            revert EdgeEngine__WithdrawExeedBalance();
-        }
-
-        s_collateralDeposits[msg.sender][_collateralAddress] -= _amount;
-        emit userWithDrawCollateral(msg.sender, _collateralAddress, _amount);
-
-        bool success = ERC20(_collateralAddress).transfer(msg.sender, _amount);
-
-        if (!success) {
-            revert EdgeEngine__FaildToTransferCollateral();
-        }
-    }
-
-    //re check this lequidate function
-    // what if they did not pay all the debt
-
-    function liquidate(address user, address token, uint256 _amount) public minimumChecks(_amount) {
-        uint256 userStartHealthFactor = _revertIFHealthFatorIsBroken(user);
-
-        if (userStartHealthFactor >= PRICE_PRICISION) {
+        uint256 startingHealthFactor = getHealthFactor(_user);
+        if (startingHealthFactor >= MIN_HEALTH_FACTOR) {
             revert EdgeEngine__UserHealthFactorIsOk();
         }
 
-        uint256 tokenWorthOfAmount = getTokenWorthofAmountInUsd(token, _amount);
+        // Calculate collateral equivalent of the debt plus bonus
+        uint256 tokenAmountFromDebtCovered = getTokenValueFromUsd(_token, _debtToCover);
+        uint256 bonusCollateral = (tokenAmountFromDebtCovered * LIQUIDATOR_BONUS) / LIQUIDATOR_BONUS_PRECISION;
+        uint256 totalCollateralToRedeem = tokenAmountFromDebtCovered + bonusCollateral;
 
-        uint256 liquidatorBunus = tokenWorthOfAmount * LIQUIDATOR_BONUS / LIQUIDATOR_BONUS_PRICISIONS;
+        _burnEdge(_debtToCover, msg.sender, _user);
+        _withdrawCollateral(_token, totalCollateralToRedeem, _user, msg.sender);
 
-        uint256 TotalLiquidatorRedeems = tokenWorthOfAmount + liquidatorBunus;
-
-        _burnEdge(_amount, msg.sender, user);
-
-        _withdraw(token, TotalLiquidatorRedeems);
-
-        uint256 userEndHealthFactor = _revertIFHealthFatorIsBroken(user);
-
-        if (userEndHealthFactor < PRICE_PRICISION) {
+        uint256 endingHealthFactor = getHealthFactor(_user);
+        if (endingHealthFactor <= startingHealthFactor) {
             revert EdgeEngine__HealthFactorNotImproved();
         }
+        _revertIfHealthFactorIsBroken(msg.sender);
     }
 
-    function healthFator(address user) private view returns (uint256) {
-        (uint256 collateralValueInUsd, uint256 totalMinted) = getAccountInfomation(user);
+    ///////////////////
+    // Private/Internal Functions
+    ///////////////////
 
-        if (totalMinted == 0) return PRICE_PRICISION;
-
-        uint256 allowedThreshold = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRICISIONS;
-
-        uint256 pricision = (allowedThreshold * PRICE_PRICISION) / totalMinted;
-
-        return pricision;
+    function _burnEdge(uint256 _amount, address _from, address _onBehalfOf) private {
+        s_mintedEdge[_onBehalfOf] -= _amount;
+        bool success = i_edge.transferFrom(_from, address(this), _amount);
+        if (!success) revert EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
+        i_edge.burn(_amount);
+        emit EdgeBurned(_onBehalfOf, _amount);
     }
 
-    function _revertIFHealthFatorIsBroken(address user) private view returns (uint256) {
-        uint256 pricision = healthFator(user);
+    function _withdrawCollateral(address _token, uint256 _amount, address _from, address _to) private {
+        if (s_collateralDeposits[_from][_token] < _amount) {
+            revert EdgeEngine__WithdrawExeedBalance();
+        }
 
-        if (pricision < PRICE_PRICISION) {
+        s_collateralDeposits[_from][_token] -= _amount;
+        emit CollateralWithdrawn(_from, _token, _amount);
+
+        bool success = ERC20(_token).transfer(_to, _amount);
+        if (!success) revert EdgeEngine__FaildToTransferCollateral();
+    }
+
+    function _revertIfHealthFactorIsBroken(address _user) internal view {
+        uint256 healthFactor = getHealthFactor(_user);
+        if (healthFactor < MIN_HEALTH_FACTOR) {
             revert EdgeEngine__HealthFatorIsBroken__LiquidatingSoon();
         }
-        return pricision;
     }
 
-    function getTokenWorthofAmountInUsd(address token, uint256 _amount) private view returns (uint256 amountInToken) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 priceValue,,,) = priceFeed.getPriceFeedData();
+    ///////////////////
+    // Public/View Functions
+    ///////////////////
 
-        amountInToken = ((_amount * PRICE_PRICISION) / uint256(priceValue)) * ORACLE_PRICE_PRICISION;
-        return amountInToken;
+    function getHealthFactor(address _user) public view returns (uint256) {
+        (uint256 collateralValueInUsd, uint256 totalMinted) = getAccountInformation(_user);
+        if (totalMinted == 0) return type(uint256).max;
+
+        uint256 adjustedCollateral = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRECISION;
+        return (adjustedCollateral * PRECISION) / totalMinted;
     }
 
-    function getAccountInfomation(address user)
+    function getAccountInformation(address _user)
         public
         view
         returns (uint256 collateralValueInUsd, uint256 totalMinted)
     {
-        totalMinted = s_minteds[user];
+        totalMinted = s_mintedEdge[_user];
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             address token = s_collateralTokens[i];
-
-            collateralValueInUsd += getCollaterTokenPrice(token, s_collateralDeposits[user][token]);
+            collateralValueInUsd += getUsdValue(token, s_collateralDeposits[_user][token]);
         }
-        return (collateralValueInUsd, totalMinted);
     }
 
-    function getCollaterTokenPrice(address _collateralTokenAddress, uint256 _amount)
-        internal
-        view
-        returns (uint256 price)
-    {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[_collateralTokenAddress]);
-        (, int256 priceValue,,,) = priceFeed.getPriceFeedData();
-
-        return ((uint256(priceValue) * ORACLE_PRICE_PRICISION) * _amount) / PRICE_PRICISION;
+    function getUsdValue(address _token, uint256 _amount) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[_token]);
+        (, int256 price,,,) = priceFeed.getPriceFeedData();
+        return ((uint256(price) * ORACLE_PRICE_PRECISION) * _amount) / PRECISION;
     }
 
-    ///////////////////
-    // Getter Functions (Public/View)
-    ///////////////////
-
-    function getCollateralBalance(address user, address token) external view returns (uint256) {
-        return s_collateralDeposits[user][token];
+    function getTokenValueFromUsd(address _token, uint256 _usdAmountInWei) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[_token]);
+        (, int256 price,,,) = priceFeed.getPriceFeedData();
+        return (_usdAmountInWei * PRECISION) / (uint256(price) * ORACLE_PRICE_PRECISION);
     }
 
-    function getPriceFeed(address token) external view returns (address) {
-        return s_priceFeeds[token];
+    // Getters
+    function getCollateralBalance(address _user, address _token) external view returns (uint256) {
+        return s_collateralDeposits[_user][_token];
     }
 }
