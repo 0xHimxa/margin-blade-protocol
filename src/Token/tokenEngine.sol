@@ -18,6 +18,10 @@ contract EdgeEngine {
     error EdgeEngine__CollateralTokenNotAllowed();
     error EdgeEngine__FailedToDepositCollateral();
     error EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
+    error EdgeEngine__WithdrawBalanceIsZero();
+    error EdgeEngine__FaildToTransferCollateral();
+    error EdgeEngine__HealthFatorIsBroken__LiquidatingSoon();
+
 
     ///////////////////
     // State Variables
@@ -25,12 +29,15 @@ contract EdgeEngine {
     // Mapping of token address to its corresponding Price Feed address
     mapping(address collateralToken => address priceFeed) private s_priceFeeds;
     address[] private s_collateralTokens;
+    mapping(address user => uint256 minted) private s_minteds;
 
     // Mapping of user address to collateral token address to the amount deposited
     mapping(address user => mapping(address collateralToken => uint256 amount))
         private s_collateralDeposits;
     uint256 private constant ORACLE_PRICE_PRICISION = 1e10;
     uint256 private constant PRICE_PRICISION = 1e18;
+    uint256 private constant  THRESHOLD= 50;
+    uint256 private constant THRESHOLD_PRICISIONS = 100; 
 
     ///////////////////
     // Events
@@ -38,6 +45,12 @@ contract EdgeEngine {
     event CollateralDeposited(
         address indexed user,
         address indexed collateral,
+        uint256 indexed amount
+    );
+
+    event userWithDrawCollateral(
+        address indexed user,
+        address indexed collateralAdd,
         uint256 indexed amount
     );
 
@@ -106,22 +119,78 @@ contract EdgeEngine {
         }
     }
 
+    function withdrawCollateral(
+        address _collateralAddress,
+        uint256 _amount
+    ) external minimumChecks(_amount) isCollateralAllowed(_collateralAddress) {
+        if (s_collateralDeposits[msg.sender][_collateralAddress] == 0)
+            revert EdgeEngine__WithdrawBalanceIsZero();
+
+        s_collateralDeposits[msg.sender][_collateralAddress] -= _amount;
+        emit userWithDrawCollateral(msg.sender, _collateralAddress, _amount);
+
+        bool success = ERC20(_collateralAddress).transfer(msg.sender, _amount);
+
+        if (!success) {
+            revert EdgeEngine__FaildToTransferCollateral();
+        }
+    }
+
+
+
+
+
+function healthFator(address user) private view returns(uint256){
+
+(uint256 collateralValueInUsd, uint256 totalMinted) =getAccountInfomation(user);
+
+
+if(totalMinted == 0) return PRICE_PRICISION;
+
+
+uint256 allowedThreshold = (collateralValueInUsd* THRESHOLD)/THRESHOLD_PRICISIONS;
+
+
+uint pricision = (allowedThreshold * PRICE_PRICISION)/totalMinted;
+
+return pricision;
+
+}
+
+
+
+function _revertIFHealthFatorIsBroken(address user) private view{
+
+uint256 pricision = healthFator(user);
+
+if(pricision < PRICE_PRICISION){
+    revert EdgeEngine__HealthFatorIsBroken__LiquidatingSoon();
+}
+
+
+}
+
+
+
+
+
     function getAccountInfomation(
         address user
-    )
-        external
+    ) public
         view
-        returns (uint256 collateralValueInUsd, uint256 totalCollateral)
+        returns (uint256 collateralValueInUsd, uint256 totalMinted)
     {
+
+        totalMinted = s_minteds[user];
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
             address token = s_collateralTokens[i];
-            totalCollateral += s_collateralDeposits[user][token];
+           
             collateralValueInUsd += getCollaterTokenPrice(
                 token,
                 s_collateralDeposits[user][token]
             );
         }
-        return (collateralValueInUsd, totalCollateral);
+        return (collateralValueInUsd, totalMinted);
     }
 
     function getCollaterTokenPrice(
