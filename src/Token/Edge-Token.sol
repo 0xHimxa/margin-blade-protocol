@@ -1,46 +1,77 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
-import {ERC20} from '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
-contract Edge is ERC20{
-
-
-
-////////////////
-// ERRORS //
-////////////////
-
-error EDGEToken__AmountCantBeZero();
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 
+/**
+ * @title Edge Token
+ * @author Your Name/Project
+ * @notice Standard ERC20 implementation for the Edge ecosystem with mint and burn capabilities.
+ */
+contract Edge is ERC20,Ownable {
+    ///////////////////
+    // Errors
+    ///////////////////
+    error EDGEToken__AmountCantBeZero();
+    error EDGEToken__NotAuthorized(); // Placeholder for access control
 
-constructor(string memory name,string memory symbol)ERC20(name,symbol){}
+    ///////////////////
+    // Modifiers
+    ///////////////////
+    modifier minimumChecks(uint256 _amount) {
+        if (_amount <= 0) {
+            revert EDGEToken__AmountCantBeZero();
+        }
+        _;
+    }
 
+    ///////////////////
+    // Functions
+    ///////////////////
 
-modifier minimumChecks(uint256 _amount){
+    constructor(
+        string memory name, 
+        string memory symbol
+    ) ERC20(name, symbol) Ownable(msg.sender){}
 
-  if(_amount <= 0){
-    revert EDGEToken__AmountCantBeZero();
-  }
-  _;
+    ///////////////////
+    // External Functions
+    ///////////////////
 
+    /**
+     * @notice Creates new tokens and assigns them to the specified address.
+     * @dev Warning: In a real-world scenario, this should be protected by an 'onlyOwner' 
+     * or 'onlyMinter' modifier to prevent unauthorized inflation.
+     * @param _to The address receiving the minted tokens.
+     * @param _amount The quantity of tokens to be created.
+     */
+    function mint(
+        address _to,
+        uint256 _amount
+    ) 
+        external 
+        minimumChecks(_amount)
+        onlyOwner() 
+    {
+        _mint(_to, _amount);
+    }
 
-}
-
-
-
- function mint(address _to,uint256 _amount)external minimumChecks(_amount){
-
-
-  _mint(_to,_amount);
-
- } 
-
- function burn(address _from,uint256 _amount)external minimumChecks(_amount){
-
-  _burn(_from,_amount);
-
- }
-
-    
+    /**
+     * @notice Destroys tokens from a specific address.
+     * @dev Usually used by the engine/protocol to maintain the peg or reduce supply.
+     * @param _from The address from which tokens will be removed.
+     * @param _amount The quantity of tokens to be destroyed.
+     */
+    function burn(
+        address _from,
+        uint256 _amount
+    ) 
+        external 
+        minimumChecks(_amount)
+        onlyOwner() 
+    {
+        _burn(_from, _amount);
+    }
 }
