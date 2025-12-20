@@ -11,7 +11,8 @@ contract TestEdgeEngine is Test {
 
 
 
-error EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
+    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+
 
 
 
@@ -20,14 +21,32 @@ error EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
     EdgeEngine edgeEngine;
     InitailConfig.NetworkConfig config;
     address public USER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address public zeroAddress = address(0);
+    uint256 public userStartBalne = 10 ether;
 
     function setUp() external {
         DeployEngine deployer = new DeployEngine();
         (edgeEngine, edge, config) = deployer.run();
         // vm.prank(USER);
-         ERC20Mock(config.wethAddress).mint(USER, 10 ether);
+         ERC20Mock(config.wethAddress).mint(USER,userStartBalne);
+         ERC20Mock(config.wbtcAddress).mint(USER,userStartBalne);
     }
 
+
+
+
+modifier depositCollateral(){
+uint256 depositAmount = 1 ether;
+vm.startPrank(USER);
+ERC20Mock(config.wbtcAddress).approve(address(edgeEngine), depositAmount);
+edgeEngine.depositCollateral(config.wbtcAddress, depositAmount);
+vm.stopPrank();
+
+
+
+_;
+
+}
 
 
     // state varrable tesst
@@ -125,7 +144,68 @@ address[] public priceFeed = [config.wbtcPriceFeed];
  
  }
 
+ function testConstructorRevertEdgeAddressZero() external{
+    priceFeed.push(config.wethPriceFeed);
+ vm.expectRevert(EdgeEngine.EdgeEngine__EdgeContractCantbeAddressZero.selector);
+
+
+ EdgeEngine engineTest = new EdgeEngine(collateralAdd, priceFeed ,address(0));
+
+
+ }
+
+
+ // deposit function test
+
+ function testDepositCollateralReverMinCantBeZero() external{
+    vm.expectRevert(EdgeEngine.EdgeEngine__MustBeGreaterThanZero.selector);
+    edgeEngine.depositCollateral(config.wbtcAddress, 0);
+ }
+
+
+function testDepostCollateralReverAddressNotAllowed() external{
+    vm.expectRevert(EdgeEngine.EdgeEngine__CollateralTokenNotAllowed.selector);
+
+    edgeEngine.depositCollateral(address(90),67);
 
 
    
+}
+
+//deposit sucesss
+
+
+
+
+
+function testDepositEmitCollateralDeposited() external {
+uint256 depositAmount = 1 ether;
+vm.startPrank(USER);
+ERC20Mock(config.wbtcAddress).approve(address(edgeEngine), depositAmount);
+vm.expectEmit(true, true , true, false);
+emit CollateralDeposited(USER, config.wbtcAddress, depositAmount);
+edgeEngine.depositCollateral(config.wbtcAddress, depositAmount);
+
+console.log(address(edgeEngine).balance,'engine balance');
+
+vm.stopPrank();
+
+
+}
+
+// we be back to this soon
+
+// function testDepositCollateralSuccess() external depositCollateral{
+//     uint256 depositAmount = 1 ether;
+    
+//     console.log(address(edgeEngine).balance,'engine balance');
+// //  assertEq(address(edgeEngine).balance, depositAmount);
+
+   
+
+// }
+
+
+
+
 }
