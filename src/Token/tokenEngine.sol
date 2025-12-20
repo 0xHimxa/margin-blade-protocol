@@ -13,8 +13,41 @@ import {PriceFeed} from "./oracle/priceFeed.sol";
  * @notice This contract manages the collateralization, minting, and liquidation of Edge tokens.
  * @dev Implements a decentralized stablecoin-like engine using Chainlink price feeds.
  */
-contract EdgeEngine is EdgeEngineErrors {
+contract EdgeEngine{
     using PriceFeed for AggregatorV3Interface;
+
+
+
+
+ ///////////////////
+    // Errors
+    ///////////////////
+    error EdgeEngine__MustBeGreaterThanZero();
+    error EdgeEngine__CollateralTokenNotAllowed();
+    error EdgeEngine__FailedToDepositCollateral();
+    error EdgeEngine__CollateralAddressAndPriceFeedLengthMismatch();
+    error EdgeEngine__WithdrawBalanceIsZero();
+    error EdgeEngine__FaildToTransferCollateral();
+    error EdgeEngine__HealthFatorIsBroken__LiquidatingSoon();
+    error EdgeEngine__EdgeContractCantbeAddressZero();
+    error EdgeEngine__FailedTo_MintEDGE();
+    error EdgeEngine__EDGEbalceCantBeZero();
+    error EdgeEngine__FailedTo_BurnEDGE();
+    error EdgeEngine__FailedTo_TarnsferEDGEToBeBurn();
+    error EdgeEngine__WithdrawExeedBalance();
+    error EdgeEngine__UserHealthFactorIsOk();
+    error EdgeEngine__HealthFactorNotImproved();
+    error EdgeEngine__Oracle_Price_IsInvalid();
+    error EdgeEngine__PriceAt_Stale();
+
+
+
+
+
+
+
+
+
 
     ///////////////////
     // State Variables
