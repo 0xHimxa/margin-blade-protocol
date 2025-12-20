@@ -256,4 +256,48 @@ contract EdgeEngine is EdgeEngineErrors {
     function getCollateralBalance(address _user, address _token) external view returns (uint256) {
         return s_collateralDeposits[_user][_token];
     }
+
+    function getCollateralTokenPriceFeedAddress(address _token) external view returns (address collateral) {
+        return s_priceFeeds[_token];
+    }
+
+    function getUserEdgeMinted(address user) external view returns (uint256) {
+        return s_mintedEdge[user];
+    }
+
+    function getCollarteralAddress(uint256 _index) external view returns (address) {
+        return s_collateralTokens[_index];
+    }
+
+    function getEdgeAddress() external view returns (address) {
+        return address(i_edge);
+    }
+
+    function getOraclePricePrecision() external pure returns (uint256) {
+        return ORACLE_PRICE_PRECISION;
+    }
+
+    function getPrecision() external pure returns (uint256) {
+        return PRECISION;
+    }
+
+    function getThreshold() external pure returns (uint256) {
+        return THRESHOLD;
+    }
+
+    function getThresholdPrecision() external pure returns (uint256) {
+        return THRESHOLD_PRECISION;
+    }
+
+    function getLiquidatorBonus() external pure returns (uint256) {
+        return LIQUIDATOR_BONUS;
+    }
+
+    function getLiquidatorBonusPrecision() external pure returns (uint256) {
+        return LIQUIDATOR_BONUS_PRECISION;
+    }
+
+    function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
+    }
 }
