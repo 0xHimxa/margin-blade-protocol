@@ -189,7 +189,7 @@ _;
     /**
      * @param _amount Amount of Edge to burn from user's balance to improve Health Factor.
      */
-    function burnEdge(uint256 _amount) external amountGreaterThanZero(_amount) {
+    function burnEdge(uint256 _amount) external amountGreaterThanZero(_amount) noCollatatralDeposited(msg.sender){
         _burnEdge(_amount, msg.sender, msg.sender);
         // Burning Edge always improves health factor, so revert check is optional but safe
         _revertIfHealthFactorIsBroken(msg.sender);

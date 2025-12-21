@@ -14,6 +14,7 @@ contract TestEdgeEngine is Test {
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
     event EdgeMinted(address indexed user, uint256 amount);
 
+    event EdgeBurned(address indexed user, uint256 amount);
 
 
 
@@ -48,6 +49,14 @@ edgeEngine.depositCollateral(config.wbtcAddress, depositAmount);
 
 _;
 
+}
+modifier mintEdge(){
+ 
+vm.prank(USER);
+edgeEngine.mintEdge(45000e18);
+
+
+_;
 }
 
 
@@ -253,11 +262,13 @@ console.log(collateralWorthOfEdge, totalMinted,'here boy');
 function testMintEdgrEmitEdgeMinted() external depositCollateral{
 
 
+
 vm.expectEmit(true, false, false, true);
 emit EdgeMinted(USER, 100);
 vm.prank(USER);
 edgeEngine.mintEdge(100);
 
+vm.stopPrank();
 
 
 
@@ -265,6 +276,55 @@ edgeEngine.mintEdge(100);
 
 
 
+// burn Edge
+
+
+function testBurnEdgeFailedAmountMutBeGreaterThanZero() external depositCollateral mintEdge{
+    vm.expectRevert(EdgeEngine.EdgeEngine__MustBeGreaterThanZero.selector);
+    vm.prank(USER);
+    edgeEngine.burnEdge(0);
+
+
+}
+
+
+function testBurnEdgeRevertDepositCollateralFirst() external{
+    vm.expectRevert(EdgeEngine.EdgeEngine__DepositCollateral_First.selector);
+
+   vm.prank(USER);
+    edgeEngine.burnEdge(100);
+
+
+}
+
+function testBurnEdgeEmitEvent() external depositCollateral mintEdge{
+    vm.prank(USER);
+edge.approve(address(edgeEngine), 100);
+
+
+    vm.expectEmit(true,false,false,true);
+    emit EdgeBurned(USER, 100);
+    vm.prank(USER);
+    edgeEngine.burnEdge(100);
+
+
+}
+
+// the code will not reach this line
+// else under flow
+
+
+// function testBurnRevertHealthFactorIsBroken() external depositCollateral mintEdge{
+//  vm.prank(USER);
+// edge.approve(address(edgeEngine), 45001e18);
+// vm.expectRevert(EdgeEngine.EdgeEngine__HealthFatorIsBroken__LiquidatingSoon.selector);
+
+//  vm.prank(USER);
+//     edgeEngine.burnEdge(45001e18);
+
+
+
+// }
 
 
 
