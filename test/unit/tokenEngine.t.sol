@@ -193,17 +193,17 @@ vm.stopPrank();
 
 }
 
-// we be back to this soon
 
-// function testDepositCollateralSuccess() external depositCollateral{
-//     uint256 depositAmount = 1 ether;
+
+function testDepositCollateralSuccess() external depositCollateral{
+    uint256 depositAmount = 1 ether;
     
-//     console.log(address(edgeEngine).balance,'engine balance');
-// //  assertEq(address(edgeEngine).balance, depositAmount);
+    console.log(address(edgeEngine).balance,'engine balance');
+  assertEq(ERC20Mock(config.wbtcAddress).balanceOf(address(edgeEngine)), depositAmount);
 
    
 
-// }
+}
 
 
 
