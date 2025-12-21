@@ -39,8 +39,8 @@ contract EdgeEngine{
     error EdgeEngine__HealthFactorNotImproved();
     error EdgeEngine__Oracle_Price_IsInvalid();
     error EdgeEngine__PriceAt_Stale();
-
-
+  error EdgeEngine__DepositCollateral_First();
+ error  EdgeEngine__MintingMoreThanCollateralAllowed();
 
 
 
@@ -91,6 +91,22 @@ contract EdgeEngine{
         if (s_priceFeeds[_token] == address(0)) revert EdgeEngine__CollateralTokenNotAllowed();
         _;
     }
+
+
+ modifier noCollatatralDeposited( address _user){
+(uint256 collateralValue,) = getAccountInformation(_user);
+
+
+if(collateralValue == 0){
+ 
+ revert EdgeEngine__DepositCollateral_First();
+}
+
+_;
+ }
+
+
+
 
     ///////////////////
     // Functions
@@ -161,7 +177,7 @@ contract EdgeEngine{
      * @param _amount Amount of Edge to mint.
      * @dev Must have sufficient collateral value to maintain Health Factor.
      */
-    function mintEdge(uint256 _amount) public amountGreaterThanZero(_amount) {
+    function mintEdge(uint256 _amount) public amountGreaterThanZero(_amount) noCollatatralDeposited(msg.sender){
         s_mintedEdge[msg.sender] += _amount;
         _revertIfHealthFactorIsBroken(msg.sender);
 
@@ -258,6 +274,10 @@ contract EdgeEngine{
         if (totalMinted == 0) return type(uint256).max;
 
         uint256 adjustedCollateral = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRECISION;
+// if(adjustedCollateral <  totalMinted){
+//     revert EdgeEngine__MintingMoreThanCollateralAllowed();
+// }
+
         return (adjustedCollateral * PRECISION) / totalMinted;
     }
 
@@ -283,6 +303,14 @@ contract EdgeEngine{
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[_token]);
         (, int256 price,,,) = priceFeed.getPriceFeedData();
         return (_usdAmountInWei * PRECISION) / (uint256(price) * ORACLE_PRICE_PRECISION);
+    }
+
+
+    function getCollatralWorthOfEdgeAndEgdeMintedSoFar(address _user) public view returns (uint256, uint256){
+        (uint256 collateralValueInUsd, uint256 totalMinted) = getAccountInformation(_user);
+        
+          uint256 adjustedCollateral = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRECISION;
+          return (adjustedCollateral, totalMinted);
     }
 
     // Getters

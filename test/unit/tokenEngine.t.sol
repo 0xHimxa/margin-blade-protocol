@@ -12,6 +12,7 @@ contract TestEdgeEngine is Test {
 
 
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+    event EdgeMinted(address indexed user, uint256 amount);
 
 
 
@@ -37,10 +38,11 @@ contract TestEdgeEngine is Test {
 
 modifier depositCollateral(){
 uint256 depositAmount = 1 ether;
-vm.startPrank(USER);
+vm.prank(USER);
 ERC20Mock(config.wbtcAddress).approve(address(edgeEngine), depositAmount);
+vm.prank(USER);
 edgeEngine.depositCollateral(config.wbtcAddress, depositAmount);
-vm.stopPrank();
+
 
 
 
@@ -204,6 +206,66 @@ function testDepositCollateralSuccess() external depositCollateral{
    
 
 }
+
+
+/// Minting test
+
+
+
+function testMintEdgeFailedAmountMutBeGreaterThanZero() external {
+    vm.prank(USER);
+    vm.expectRevert(EdgeEngine.EdgeEngine__MustBeGreaterThanZero.selector);
+    edgeEngine.mintEdge(0);
+
+
+}
+
+
+
+function testMintingEdgeEngineRevertDepositCollateralFirst() external{
+
+vm.expectRevert(EdgeEngine.EdgeEngine__DepositCollateral_First.selector);
+vm.prank(USER);
+    edgeEngine.mintEdge(100);
+
+
+
+}
+
+
+
+function testMintRevertMintinMoreThanCollateral() external depositCollateral{
+    (uint256 collateralWorthOfEdge, uint256 totalMinted) = edgeEngine.getCollatralWorthOfEdgeAndEgdeMintedSoFar(USER);
+console.log(collateralWorthOfEdge, totalMinted,'here boy');
+
+    vm.expectRevert(EdgeEngine.EdgeEngine__HealthFatorIsBroken__LiquidatingSoon.selector);
+
+vm.prank(USER);
+    edgeEngine.mintEdge(collateralWorthOfEdge + 1);
+
+console.log(collateralWorthOfEdge, totalMinted,'here boy');
+
+}
+
+
+
+
+function testMintEdgrEmitEdgeMinted() external depositCollateral{
+
+
+vm.expectEmit(true, false, false, true);
+emit EdgeMinted(USER, 100);
+vm.prank(USER);
+edgeEngine.mintEdge(100);
+
+
+
+
+}
+
+
+
+
 
 
 

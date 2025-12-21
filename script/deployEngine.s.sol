@@ -13,13 +13,13 @@ contract DeployEngine is Script {
     function run() external returns (EdgeEngine, Edge, InitailConfig.NetworkConfig memory) {
         InitailConfig initialConfig = new InitailConfig();
         InitailConfig.NetworkConfig memory config = initialConfig.getConfig();
-        vm.startBroadcast(owner);
+        vm.startBroadcast();
         Edge edge = new Edge("EDGE", "EDGE");
         priceFeed = [config.wbtcPriceFeed, config.wethPriceFeed];
         collateralToken = [config.wbtcAddress, config.wethAddress];
         EdgeEngine edgeEngine = new EdgeEngine(collateralToken, priceFeed, address(edge));
-        // edge.transferOwnership(owner);
-        console.log(edge.owner());
+        edge.transferOwnership(address(edgeEngine));
+       
         vm.stopBroadcast();
 
         return (edgeEngine, edge, config);
