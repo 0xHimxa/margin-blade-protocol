@@ -13,13 +13,10 @@ import {PriceFeed} from "./oracle/priceFeed.sol";
  * @notice This contract manages the collateralization, minting, and liquidation of Edge tokens.
  * @dev Implements a decentralized stablecoin-like engine using Chainlink price feeds.
  */
-contract EdgeEngine{
+contract EdgeEngine {
     using PriceFeed for AggregatorV3Interface;
 
-
-
-
- ///////////////////
+    ///////////////////
     // Errors
     ///////////////////
     error EdgeEngine__MustBeGreaterThanZero();
@@ -39,15 +36,8 @@ contract EdgeEngine{
     error EdgeEngine__HealthFactorNotImproved();
     error EdgeEngine__Oracle_Price_IsInvalid();
     error EdgeEngine__PriceAt_Stale();
-  error EdgeEngine__DepositCollateral_First();
- error  EdgeEngine__MintingMoreThanCollateralAllowed();
-
-
-
-
-
-
-
+    error EdgeEngine__DepositCollateral_First();
+    error EdgeEngine__MintingMoreThanCollateralAllowed();
 
     ///////////////////
     // State Variables
@@ -92,21 +82,15 @@ contract EdgeEngine{
         _;
     }
 
+    modifier noCollatatralDeposited(address _user) {
+        (uint256 collateralValue,) = getAccountInformation(_user);
 
- modifier noCollatatralDeposited( address _user){
-(uint256 collateralValue,) = getAccountInformation(_user);
+        if (collateralValue == 0) {
+            revert EdgeEngine__DepositCollateral_First();
+        }
 
-
-if(collateralValue == 0){
- 
- revert EdgeEngine__DepositCollateral_First();
-}
-
-_;
- }
-
-
-
+        _;
+    }
 
     ///////////////////
     // Functions
@@ -177,7 +161,7 @@ _;
      * @param _amount Amount of Edge to mint.
      * @dev Must have sufficient collateral value to maintain Health Factor.
      */
-    function mintEdge(uint256 _amount) public amountGreaterThanZero(_amount) noCollatatralDeposited(msg.sender){
+    function mintEdge(uint256 _amount) public amountGreaterThanZero(_amount) noCollatatralDeposited(msg.sender) {
         s_mintedEdge[msg.sender] += _amount;
         _revertIfHealthFactorIsBroken(msg.sender);
 
@@ -189,7 +173,7 @@ _;
     /**
      * @param _amount Amount of Edge to burn from user's balance to improve Health Factor.
      */
-    function burnEdge(uint256 _amount) external amountGreaterThanZero(_amount) noCollatatralDeposited(msg.sender){
+    function burnEdge(uint256 _amount) external amountGreaterThanZero(_amount) noCollatatralDeposited(msg.sender) {
         _burnEdge(_amount, msg.sender, msg.sender);
         // Burning Edge always improves health factor, so revert check is optional but safe
         _revertIfHealthFactorIsBroken(msg.sender);
@@ -199,7 +183,11 @@ _;
      * @param _collateralAddress Token to withdraw.
      * @param _amount Amount to withdraw.
      */
-    function withdrawCollateral(address _collateralAddress, uint256 _amount) external amountGreaterThanZero(_amount) {
+    function withdrawCollateral(address _collateralAddress, uint256 _amount)
+        external
+        amountGreaterThanZero(_amount)
+        noCollatatralDeposited(msg.sender)
+    {
         _withdrawCollateral(_collateralAddress, _amount, msg.sender, msg.sender);
         _revertIfHealthFactorIsBroken(msg.sender);
     }
@@ -274,9 +262,9 @@ _;
         if (totalMinted == 0) return type(uint256).max;
 
         uint256 adjustedCollateral = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRECISION;
-// if(adjustedCollateral <  totalMinted){
-//     revert EdgeEngine__MintingMoreThanCollateralAllowed();
-// }
+        // if(adjustedCollateral <  totalMinted){
+        //     revert EdgeEngine__MintingMoreThanCollateralAllowed();
+        // }
 
         return (adjustedCollateral * PRECISION) / totalMinted;
     }
@@ -299,18 +287,17 @@ _;
         return ((uint256(price) * ORACLE_PRICE_PRECISION) * _amount) / PRECISION;
     }
 
-    function getTokenValueFromUsd(address _token, uint256 _usdAmountInWei) public view returns (uint256) {
+    function getTokenValueFromUsd(address _token, uint256 _usdAmountInWei) public view isAllowedCollateral(_token)  returns (uint256)  {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[_token]);
         (, int256 price,,,) = priceFeed.getPriceFeedData();
         return (_usdAmountInWei * PRECISION) / (uint256(price) * ORACLE_PRICE_PRECISION);
     }
 
-
-    function getCollatralWorthOfEdgeAndEgdeMintedSoFar(address _user) public view returns (uint256, uint256){
+    function getCollatralWorthOfEdgeAndEgdeMintedSoFar(address _user) public view returns (uint256, uint256) {
         (uint256 collateralValueInUsd, uint256 totalMinted) = getAccountInformation(_user);
-        
-          uint256 adjustedCollateral = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRECISION;
-          return (adjustedCollateral, totalMinted);
+
+        uint256 adjustedCollateral = (collateralValueInUsd * THRESHOLD) / THRESHOLD_PRECISION;
+        return (adjustedCollateral, totalMinted);
     }
 
     // Getters

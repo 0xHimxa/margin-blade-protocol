@@ -19,7 +19,7 @@ contract DeployEngine is Script {
         collateralToken = [config.wbtcAddress, config.wethAddress];
         EdgeEngine edgeEngine = new EdgeEngine(collateralToken, priceFeed, address(edge));
         edge.transferOwnership(address(edgeEngine));
-       
+
         vm.stopBroadcast();
 
         return (edgeEngine, edge, config);
