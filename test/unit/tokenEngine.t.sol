@@ -330,5 +330,39 @@ function testGetTokenAmountFromUsd() external depositCollateral {
             assertEq(totalMinted, 45000e18);
         }
 
-    
+
+  function testDepositCollateralAndMintEdgeMultipleTimes() external{
+
+     uint256 depositAmount = 1 ether;
+        vm.prank(USER);
+        ERC20Mock(config.wbtcAddress).approve(address(edgeEngine), depositAmount);
+        vm.prank(USER);
+        edgeEngine.depositCollateralAndMintEdge(config.wbtcAddress, depositAmount, 45000e18);
+
+            (uint256 collateralWorthOfEdge, uint256 totalMinted) = edgeEngine.getCollatralWorthOfEdgeAndEgdeMintedSoFar(USER);
+
+            assertEq(totalMinted, 45000e18);
+            assertEq(collateralWorthOfEdge, 45000e18);
+    }
+
+
+function  testwithdrawCollateralAndBurnEdge() external depositCollateral mintEdge {
+    uint256 withdrawAmount = 0.5 ether;
+    uint256 edgeToBurn = 45000e18;
+    uint256 useCollateral = edgeEngine.getCollateralBalance(USER, config.wbtcAddress);
+    console.log(useCollateral, "user collateral before withdraw and burn");
+   
+    vm.prank(USER);
+    edge.approve(address(edgeEngine), edgeToBurn);
+     vm.prank(USER);
+     edgeEngine.burnEdgeAndWithdrawCollateral(config.wbtcAddress, withdrawAmount, edgeToBurn);
+     
+    uint256 useCollateralAfter = edgeEngine.getCollateralBalance(USER, config.wbtcAddress);
+    console.log(useCollateralAfter, "user collateral after withdraw and burn");
+    assertEq(useCollateralAfter,withdrawAmount);
+     
+     }
+
+
+
     }

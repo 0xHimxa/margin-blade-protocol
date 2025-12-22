@@ -131,7 +131,7 @@ contract EdgeEngine {
     /**
      * @notice Convenience function to burn Edge and withdraw collateral in one transaction.
      */
-    function withdrawCollateralAndBurnEdge(
+    function burnEdgeAndWithdrawCollateral(
         address _collateralAddress,
         uint256 _amountCollateral,
         uint256 _edgeAmountToBurn
